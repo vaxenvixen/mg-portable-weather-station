@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Magic Garden Weather Station
 // @namespace    https://example.com/weather-station
-// @version      1.0.0
+// @version      1.0.1
 // @description  Portaable weather station for Magic Garden
 // @author       Vaxen
 // @match        https://1227719606223765687.discordsays.com/*
@@ -10,18 +10,37 @@
 // @match        https://starweaver.org/r/*
 // @grant        GM_xmlhttpRequest
 // @connect      raw.githubusercontent.com
-// @updateURL    https://raw.githubusercontent.com/vaxenvixen/mg-portable-weather-station/main/mg-portable-weatherstation.user.js
-// @downloadURL  https://raw.githubusercontent.com/vaxenvixen/mg-portable-weather-station/main/mg-portable-weatherstation.user.js
+// @updateURL    https://raw.githubusercontent.com/vaxenvixen/mg-portable-weather-station/main/mg-portable-weather-station.user.js
+// @downloadURL  https://raw.githubusercontent.com/vaxenvixen/mg-portable-weather-station/main/mg-portable-weather-station.user.js
+// @run-at       document-idle
+// ==/UserScript==
+
+// ==UserScript==
+// @name         Magic Garden Weather Station
+// @namespace    https://example.com/weather-station
+// @version      1.0.0
+// @description  Live weather + real forecast (Next weather / Next lunar) for Magic Garden
+// @author       You
+// @match        https://1227719606223765687.discordsays.com/*
+// @match        https://magiccircle.gg/r/*
+// @match        https://magicgarden.gg/r/*
+// @match        https://starweaver.org/r/*
+// @grant        GM_xmlhttpRequest
+// @connect      raw.githubusercontent.com
 // @run-at       document-idle
 // ==/UserScript==
 "use strict";
 (() => {
   const page = typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
   const PANEL_ID = "weather-station";
-  const SCRIPT_VERSION = "1.0.0";
+  const SCRIPT_VERSION = "3.0.0";
   const VERSION_CHECK_URL = "https://raw.githubusercontent.com/vaxenvixen/mg-portable-weather-station/main/magic-garden-weather-station.user.js";
   const VERSION_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 
+  // ============================================================
+  // Shared panel manager (see Room Favorites script for rationale --
+  // both scripts reuse the same window.__mgPanelManager instance).
+  // ============================================================
   function getPanelManager() {
     if (!page.__mgPanelManager) {
       const panels = new Map();
@@ -47,6 +66,9 @@
     return page.__mgPanelManager;
   }
 
+  // ============================================================
+  // Shared room-patch subscription (see Room Favorites script).
+  // ============================================================
   function subscribeToRoomPatches(handler, attempt = 0) {
     const connection = page.MagicCircle_RoomConnection;
     if (typeof connection?.subscribeToPatches !== "function") {
@@ -68,6 +90,19 @@
     connection.__mgListeners.push(handler);
   }
 
+  // ============================================================
+  // Weather scheduling engine
+  //
+  // Reimplemented from the game's own client code and validated to
+  // produce bit-for-bit identical results (same weatherId, startsAtMs,
+  // and endsAtMs) against a real forecast sample captured live from
+  // the game itself.
+  //
+  // The RNG (createMash / createAlea) is the public-domain "Alea"
+  // generator (Johannes Baagoe / David Bau's seedrandom), which is
+  // what the game uses to seed each day's schedule from that day's
+  // UTC date string.
+  // ============================================================
   const SLOT_MINUTES = 5;
   const SLOT_MS = SLOT_MINUTES * 60 * 1000;
   const SLOTS_PER_DAY = 288;
@@ -145,6 +180,7 @@
     };
   }
 
+  // Public-domain "Alea" PRNG, seeded with a string (here: a day key).
   function createAlea(seed) {
     const mash = createMash();
     let s0 = mash(" ");
@@ -180,6 +216,10 @@
     return undefined;
   }
 
+  // Generates one UTC day's full 288-slot weather schedule, seeded
+  // deterministically from that day's date string. Fixed-time slots
+  // (lunar) are reserved first so random-time slots (hydro) avoid
+  // overlapping them, matching the game's own generation order.
   function generateDaySchedule(dayKey) {
     const slots = {};
     const rng = createAlea(dayKey);
@@ -260,8 +300,8 @@
     return null;
   }
 
-  function nextAnyWeather(date) {
-    return findNextEvent(date, () => true);
+  function nextHydroWeather(date) {
+    return findNextEvent(date, (id) => WEATHER_META[id].groupId === GROUP.HYDRO);
   }
   function nextLunarWeather(date) {
     return findNextEvent(date, (id) => WEATHER_META[id].groupId === GROUP.LUNAR);
@@ -360,14 +400,13 @@
 
     const now = new Date();
 
-    // "Next weather": the literal next event of any type. If it happens
-    // to be lunar-group, show it generically -- matches the game's own
-    // dialog, which never reveals Dawn vs. Amber Moon ahead of time.
-    const nextEvent = nextAnyWeather(now);
+    // "Next weather": the next Hydro-group event only (Rain/Snow/
+    // Thunderstorm). Lunar events are deliberately excluded here --
+    // they're covered by the separate "Next lunar" row below.
+    const nextEvent = nextHydroWeather(now);
     const nextEl = panel.querySelector(".ws-next");
     if (nextEvent) {
-      const isLunar = WEATHER_META[nextEvent.weatherId].groupId === GROUP.LUNAR;
-      const { icon, label } = isLunar ? { icon: "\u2753", label: "Lunar" } : weatherDisplay(nextEvent.weatherId);
+      const { icon, label } = weatherDisplay(nextEvent.weatherId);
       nextEl.innerHTML = upcomingRowHtml(icon, label, nextEvent.startsAtMs - now.getTime());
     } else {
       nextEl.innerHTML = `<span class="ws-forecast-label ws-dim">Not available</span>`;

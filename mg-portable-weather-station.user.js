@@ -19,8 +19,8 @@
 (() => {
   const page = typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
   const PANEL_ID = "weather-station";
-  const SCRIPT_VERSION = "3.0.0";
-  const VERSION_CHECK_URL = "https://raw.githubusercontent.com/vaxenvixen/mg-portable-weather-station/main/magic-garden-weather-station.user.js";
+  const SCRIPT_VERSION = "1.0.1";
+  const VERSION_CHECK_URL = "https://raw.githubusercontent.com/vaxenvixen/mg-portable-weather-station/main/mg-portable-weather-station.user.js";
   const VERSION_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 
   // ============================================================

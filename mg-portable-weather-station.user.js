@@ -15,20 +15,6 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-// ==UserScript==
-// @name         Magic Garden Weather Station
-// @namespace    https://example.com/weather-station
-// @version      1.0.0
-// @description  Live weather + real forecast (Next weather / Next lunar) for Magic Garden
-// @author       You
-// @match        https://1227719606223765687.discordsays.com/*
-// @match        https://magiccircle.gg/r/*
-// @match        https://magicgarden.gg/r/*
-// @match        https://starweaver.org/r/*
-// @grant        GM_xmlhttpRequest
-// @connect      raw.githubusercontent.com
-// @run-at       document-idle
-// ==/UserScript==
 "use strict";
 (() => {
   const page = typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
